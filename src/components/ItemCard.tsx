@@ -4,11 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { MapPin, Calendar, Tag, X, User, MessageSquare, Send, CheckCircle2 } from 'lucide-react';
+import { MapPin, Calendar, Tag, X, User, MessageSquare, Send, CheckCircle2, Trash2 } from 'lucide-react';
 import { LostFoundItem } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../App';
+import { supabase } from '../lib/supabase';
 
 interface ItemCardProps {
   item: LostFoundItem;
@@ -16,11 +17,37 @@ interface ItemCardProps {
 }
 
 export default function ItemCard({ item }: ItemCardProps) {
+  const { isAdmin } = useAuth();
   const [showDetails, setShowDetails] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const isLost = item.type === 'lost';
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Admin Action: Are you sure you want to PERMANENTLY delete this report?")) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', item.id);
+      
+      if (error) throw error;
+      
+      // The real-time subscription in parent pages (Browse/Home) will handle the UI removal
+      alert("Report deleted successfully.");
+      setShowDetails(false);
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete report.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleContact = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +83,18 @@ export default function ItemCard({ item }: ItemCardProps) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
             referrerPolicy="no-referrer"
           />
+          {isAdmin && (
+            <div className="absolute top-4 right-4 z-20">
+              <button 
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/90 text-rose-500 shadow-xl backdrop-blur-md transition-all hover:bg-rose-600 hover:text-white"
+                title="Admin Delete"
+              >
+                <Trash2 size={18} className={isDeleting ? "animate-pulse" : ""} />
+              </button>
+            </div>
+          )}
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
             <span className="rounded-full bg-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white backdrop-blur-md">
               Tap to Expand
