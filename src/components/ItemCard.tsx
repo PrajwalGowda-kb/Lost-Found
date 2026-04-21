@@ -270,15 +270,23 @@ export default function ItemCard({ item }: ItemCardProps) {
                         </div>
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Reporter</p>
-                          <p className="text-sm font-bold text-gray-900">{item.reporterName}</p>
+                          <p className="text-sm font-bold text-gray-900">{item.reporterName || 'Anonymous Student'}</p>
                         </div>
                      </div>
-                     <button 
-                        onClick={() => setShowDetails(false)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100"
-                      >
-                        <X size={20} strokeWidth={3} />
-                      </button>
+                     <div className="flex items-center gap-2">
+                        {isAdmin && (
+                          <div className="flex items-center gap-1.5 rounded-full bg-indigo-900 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-white shadow-lg">
+                            <ShieldCheck size={10} />
+                            Admin View
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => setShowDetails(false)}
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 transition-colors"
+                        >
+                          <X size={20} strokeWidth={3} />
+                        </button>
+                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
