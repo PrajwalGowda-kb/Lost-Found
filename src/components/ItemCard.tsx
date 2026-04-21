@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { MapPin, Calendar, Tag, X, User, MessageSquare, Send, CheckCircle2, Trash2, Phone, Hash, ShieldCheck } from 'lucide-react';
+import { MapPin, Calendar, Tag, X, User, MessageSquare, Send, CheckCircle2, Trash2, Phone, Hash, ShieldCheck, RefreshCw } from 'lucide-react';
 import { LostFoundItem } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -46,6 +46,30 @@ export default function ItemCard({ item }: ItemCardProps) {
       alert("Failed to delete report.");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleResolve = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const actionText = isLost ? "mark this lost item as FOUND" : "mark this found item as RETURNED";
+    if (!window.confirm(`Are you sure you want to ${actionText}? This will remove it from the browse page.`)) return;
+    
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', item.id);
+      
+      if (error) throw error;
+      
+      alert(isLost ? "Item marked as found!" : "Item marked as returned!");
+      setShowDetails(false);
+    } catch (err) {
+      console.error("Resolve error:", err);
+      alert("Failed to update status.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -302,15 +326,20 @@ export default function ItemCard({ item }: ItemCardProps) {
                   {(isAdmin || (user?.id === item.reporterId)) && (
                     <div className="mb-8 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-100 flex items-center justify-between">
                        <div className="hidden sm:block">
-                          <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">Mark as Resolved?</p>
-                          <p className="text-[10px] text-emerald-400 font-bold uppercase mt-1 italic">Item found or returned</p>
+                          <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">
+                            {isLost ? "Did you find it?" : "Is it returned?"}
+                          </p>
+                          <p className="text-[10px] text-emerald-400 font-bold uppercase mt-1 italic">
+                            {isLost ? "Mark as found to resolve" : "Mark as returned to resolve"}
+                          </p>
                        </div>
                        <button 
-                        onClick={handleDelete}
-                        className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                        onClick={handleResolve}
+                        disabled={isSubmitting}
+                        className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                        >
-                         <ShieldCheck size={14} />
-                         Mark Resolved
+                         {isSubmitting ? <RefreshCw className="animate-spin" size={14} /> : <ShieldCheck size={14} />}
+                         {isLost ? "Mark Found" : "Mark Returned"}
                        </button>
                     </div>
                   )}

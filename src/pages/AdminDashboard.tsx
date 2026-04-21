@@ -131,6 +131,26 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResolve = async (item: LostFoundItem) => {
+    const actionText = item.type === 'lost' ? "mark as FOUND" : "mark as RETURNED";
+    if (!window.confirm(`Admin Action: Are you sure you want to ${actionText}? This will permanently remove the record.`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', item.id);
+      
+      if (error) throw error;
+      
+      setItems(prev => prev.filter(i => i.id !== item.id));
+      alert(item.type === 'lost' ? "Item marked as found!" : "Item marked as returned!");
+    } catch (err) {
+      console.error("Resolve error:", err);
+      alert("Failed to resolve item.");
+    }
+  };
+
   const filteredItems = items.filter(item => 
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.reporterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -351,8 +371,16 @@ export default function AdminDashboard() {
                           <td className="px-6 py-5 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
+                                onClick={() => handleResolve(item)}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-all hover:bg-emerald-600 hover:text-white"
+                                title={item.type === 'lost' ? "Mark Found" : "Mark Returned"}
+                              >
+                                <ShieldCheck size={16} />
+                              </button>
+                              <button 
                                 onClick={() => handleDelete(item.id)}
                                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500 transition-all hover:bg-rose-600 hover:text-white"
+                                title="Permanent Delete"
                               >
                                 <Trash2 size={16} />
                               </button>
