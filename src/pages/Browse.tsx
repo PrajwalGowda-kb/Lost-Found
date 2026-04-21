@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Search, X, SlidersHorizontal, User as UserIcon } from 'lucide-react';
+import { Search, X, SlidersHorizontal, User as UserIcon, Mail, Phone, Hash, ExternalLink } from 'lucide-react';
 import ItemCard from '../components/ItemCard';
 import { CATEGORIES, LostFoundItem } from '../types';
 import { cn } from '../lib/utils';
@@ -16,11 +16,17 @@ export default function Browse() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<LostFoundItem[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'items' | 'directory'>('items');
   
-  const filterMine = searchParams.get('filter') === 'mine';
+  const filterParam = searchParams.get('filter');
+  const userIdParam = searchParams.get('userId');
+  const userNameParam = searchParams.get('userName');
+  const filterMine = filterParam === 'mine' || (filterParam === 'user' && userIdParam === user?.id);
+  const filteringSpecificUser = filterParam === 'user' && userIdParam && userIdParam !== user?.id;
 
   useEffect(() => {
     if (!user) {
@@ -40,7 +46,7 @@ export default function Browse() {
           .order('created_at', { ascending: false });
 
         if (!error && data) {
-          allItems = data.map(item => ({
+          const mapped = data.map(item => ({
             id: item.id,
             title: item.title,
             description: item.description,
@@ -57,6 +63,26 @@ export default function Browse() {
             reporterAvatarUrl: item.reporter_avatar_url,
             createdAt: item.created_at
           })) as LostFoundItem[];
+          
+          allItems = mapped;
+
+          // Build User Directory
+          const userMap = new Map();
+          mapped.forEach(item => {
+            if (!userMap.has(item.reporterId)) {
+              userMap.set(item.reporterId, {
+                id: item.reporterId,
+                name: item.reporterName,
+                email: item.reporterEmail,
+                avatarUrl: item.reporterAvatarUrl,
+                phone: item.reporterPhone,
+                rollNo: item.reporterRollNo,
+                reportsCount: 0
+              });
+            }
+            userMap.get(item.reporterId).reportsCount++;
+          });
+          setUsers(Array.from(userMap.values()));
         } else if (error) {
           console.error("Error fetching items:", error);
         }
@@ -80,11 +106,26 @@ export default function Browse() {
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         item.description.toLowerCase().includes(searchQuery.toLowerCase());
+                         item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (item.reporterRollNo && item.reporterRollNo.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = !selectedCategory || item.category === selectedCategory;
-    const matchesUser = !filterMine || item.reporterId === user?.id;
+    
+    // User Filtering Logic
+    let matchesUser = true;
+    if (filterParam === 'mine') {
+       matchesUser = item.reporterId === user?.id;
+    } else if (filterParam === 'user' && userIdParam) {
+       matchesUser = item.reporterId === userIdParam;
+    }
+
     return matchesSearch && matchesCategory && matchesUser;
   });
+
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.rollNo && u.rollNo.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:py-12 sm:px-6 lg:px-8">
@@ -188,58 +229,162 @@ export default function Browse() {
 
         {/* Main Content */}
         <main className="flex-1">
-          <div className="mb-6 flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-500">
-              {loading ? "Loading items..." : (
-                <>Showing <span className="font-bold text-gray-900">{filteredItems.length}</span> items</>
-              )}
-            </span>
-            <div className="flex items-center gap-2">
-              <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-                <SlidersHorizontal size={14} />
-                <span>Sort: Newest</span>
-              </button>
+          {filteringSpecificUser && (
+            <div className="mb-8 flex items-center justify-between rounded-2xl bg-indigo-50 p-6 border-2 border-indigo-100 shadow-sm">
+               <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white font-black text-xl shadow-lg">
+                    {userNameParam?.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 leading-none mb-1">Viewing Reports For</p>
+                    <h2 className="text-xl font-black text-indigo-900 tracking-tight">{userNameParam}</h2>
+                  </div>
+               </div>
+               <button 
+                onClick={() => {
+                  const p = new URLSearchParams(searchParams);
+                  p.delete('filter');
+                  p.delete('userId');
+                  p.delete('userName');
+                  setSearchParams(p);
+                }}
+                className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 border border-gray-200 transition-all hover:bg-gray-50 hover:text-rose-500"
+               >
+                 <X size={14} />
+                 Clear Filter
+               </button>
             </div>
+          )}
+
+          <div className="mb-8 flex items-center bg-gray-50 p-1.5 rounded-2xl w-fit gap-1 border-2 border-indigo-50">
+            <button 
+              onClick={() => setActiveTab('items')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                activeTab === 'items' ? "bg-white text-indigo-600 shadow-sm border border-indigo-100" : "text-gray-400 hover:text-gray-600"
+              )}
+            >
+              Reports
+            </button>
+            <button 
+              onClick={() => setActiveTab('directory')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                activeTab === 'directory' ? "bg-white text-indigo-600 shadow-sm border border-indigo-100" : "text-gray-400 hover:text-gray-600"
+              )}
+            >
+              Directory
+            </button>
           </div>
 
-          {loading ? (
-             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-               {[1, 2, 3, 4, 5, 6].map(i => (
-                 <div key={i} className="h-[400px] animate-pulse rounded-2xl bg-gray-100"></div>
+          <div className="mb-6 flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-500">
+              {loading ? `Loading ${activeTab}...` : (
+                <>Showing <span className="font-bold text-gray-900">{activeTab === 'items' ? filteredItems.length : filteredUsers.length}</span> {activeTab}</>
+              )}
+            </span>
+          </div>
+
+          {activeTab === 'directory' ? (
+            <div className="grid gap-6 sm:grid-cols-2">
+               {filteredUsers.map(u => (
+                 <div key={u.id} className="bg-white rounded-3xl p-6 border-2 border-indigo-50 shadow-sm hover:shadow-xl transition-all group flex flex-col justify-between">
+                    <div className="flex items-center gap-4 mb-6">
+                       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 text-2xl font-black shadow-inner">
+                         {u.avatarUrl ? (
+                           <img src={u.avatarUrl} alt="" className="h-full w-full rounded-2xl object-cover" referrerPolicy="no-referrer" />
+                         ) : u.name.charAt(0)}
+                       </div>
+                       <div>
+                          <h3 className="font-black text-gray-900 text-lg leading-tight uppercase tracking-tight">{u.name}</h3>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mt-1">
+                            <Hash size={10} className="text-indigo-400" />
+                            {u.rollNo || "No Roll #"}
+                          </p>
+                       </div>
+                    </div>
+                    
+                    <div className="space-y-3 mb-6">
+                       <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                          <Mail size={14} className="text-indigo-400" />
+                          {u.email}
+                       </div>
+                       <div className="flex items-center gap-2 text-xs font-bold text-gray-500 italic">
+                          <Phone size={14} className="text-indigo-400" />
+                          {u.phone || "No Phone Listed"}
+                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-6 border-t-2 border-indigo-50/50">
+                       <div className="text-center bg-gray-50 px-3 py-2 rounded-xl">
+                          <p className="text-lg font-black text-indigo-900">{u.reportsCount}</p>
+                          <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Reports</p>
+                       </div>
+                       <button 
+                        onClick={() => {
+                          const p = new URLSearchParams(searchParams);
+                          p.set('filter', 'user');
+                          p.set('userId', u.id);
+                          p.set('userName', u.name);
+                          setSearchParams(p);
+                          setActiveTab('items');
+                        }}
+                        className="flex items-center gap-2 rounded-xl bg-indigo-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                       >
+                         View Activity
+                         <ExternalLink size={14} />
+                       </button>
+                    </div>
+                 </div>
                ))}
-             </div>
-          ) : filteredItems.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredItems.map((item) => (
-                <ItemCard key={item.id} item={item} />
-              ))}
+               {filteredUsers.length === 0 && (
+                 <div className="col-span-full py-20 text-center">
+                    <p className="text-xl font-black text-gray-400 uppercase tracking-tighter">No users found matching your search</p>
+                 </div>
+               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-gray-100 py-24 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
-                <Search size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">
-                {filterMine ? "You haven't reported anything yet" : "No items found"}
-              </h3>
-              <p className="mt-2 text-gray-500">
-                {filterMine ? "Your active lost or found reports will appear here." : "Try adjusting your search or filters."}
-              </p>
-              <button 
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory(null);
-                  if (filterMine) {
-                    const newParams = new URLSearchParams(searchParams);
-                    newParams.delete('filter');
-                    setSearchParams(newParams);
-                  }
-                }}
-                className="mt-6 font-bold text-indigo-600 hover:underline"
-              >
-                {filterMine ? "View all campus items" : "Clear all filters"}
-              </button>
-            </div>
+            <>
+              {loading ? (
+                 <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                   {[1, 2, 3, 4, 5, 6].map(i => (
+                     <div key={i} className="h-[400px] animate-pulse rounded-2xl bg-gray-100"></div>
+                   ))}
+                 </div>
+              ) : filteredItems.length > 0 ? (
+                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredItems.map((item) => (
+                    <ItemCard key={item.id} item={item} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-gray-100 py-24 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
+                    <Search size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {filterMine ? "You haven't reported anything yet" : "No items found"}
+                  </h3>
+                  <p className="mt-2 text-gray-500">
+                    {filterMine ? "Your active lost or found reports will appear here." : "Try adjusting your search or filters."}
+                  </p>
+                  <button 
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCategory(null);
+                      const p = new URLSearchParams(searchParams);
+                      p.delete('filter');
+                      p.delete('userId');
+                      p.delete('userName');
+                      setSearchParams(p);
+                    }}
+                    className="mt-6 font-bold text-indigo-600 hover:underline"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>

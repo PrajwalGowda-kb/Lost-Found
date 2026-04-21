@@ -10,6 +10,7 @@ import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../App';
 import { supabase } from '../lib/supabase';
+import { Link } from 'react-router-dom';
 
 interface ItemCardProps {
   item: LostFoundItem;
@@ -140,17 +141,34 @@ export default function ItemCard({ item }: ItemCardProps) {
             {item.title}
           </h3>
           
-          <div className="mb-4 flex items-center gap-2">
-             <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-indigo-100 text-[10px] font-black text-indigo-600 uppercase">
-               {item.reporterAvatarUrl ? (
-                 <img src={item.reporterAvatarUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-               ) : (
-                 item.reporterName.charAt(0)
-               )}
-             </div>
-             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-               Reported by {item.reporterName}
-             </span>
+          <div className="mb-4 flex items-center justify-between">
+            <Link 
+              to={`/browse?filter=user&userId=${item.reporterId}&userName=${encodeURIComponent(item.reporterName)}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+               <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-indigo-100 text-[10px] font-black text-indigo-600 uppercase">
+                 {item.reporterAvatarUrl ? (
+                   <img src={item.reporterAvatarUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                 ) : (
+                   item.reporterName.charAt(0)
+                 )}
+               </div>
+               <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                 {item.reporterName}
+               </span>
+            </Link>
+
+            {(isAdmin || (user?.id === item.reporterId)) && (
+               <button 
+                onClick={handleResolve}
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+               >
+                 {isSubmitting ? <RefreshCw className="h-2 w-2 animate-spin" /> : <ShieldCheck size={10} />}
+                 {isLost ? "Found" : "Returned"}
+               </button>
+            )}
           </div>
           
           <p className="mb-4 line-clamp-2 text-sm font-medium leading-relaxed text-gray-500">
