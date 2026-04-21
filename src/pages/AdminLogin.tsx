@@ -24,16 +24,22 @@ export default function AdminLogin() {
     setError(null);
     setIsLoading(true);
 
-    // Hardcoded restricted credentials as per user request
+    const trimmedInput = phone.trim();
+    const trimmedPass = password.trim();
+
+    // Hardcoded restricted credentials
     const ADMIN_PHONE = '7204769979';
+    const ADMIN_EMAIL = 'prajwalgowda0538@gmail.com';
     const ADMIN_PASS = '20231CSE0538';
 
     setTimeout(() => {
-      if (phone === ADMIN_PHONE && password === ADMIN_PASS) {
+      const isMatch = (trimmedInput === ADMIN_PHONE || trimmedInput === ADMIN_EMAIL) && trimmedPass === ADMIN_PASS;
+      
+      if (isMatch) {
         loginAdmin();
         navigate('/admin/dashboard');
       } else {
-        setError('Invalid admin credentials. Access denied.');
+        setError('Invalid admin credentials. Please check your details and try again.');
       }
       setIsLoading(false);
     }, 1000);
@@ -70,7 +76,7 @@ export default function AdminLogin() {
             <input 
               required
               type="text" 
-              placeholder="ADMIN PHONE NUMBER"
+              placeholder="ADMIN EMAIL OR PHONE"
               className="w-full rounded-2xl border-2 border-indigo-50 bg-gray-50 py-4 pl-14 pr-4 font-black transition-all focus:border-indigo-600 focus:bg-white focus:outline-none uppercase text-xs tracking-widest"
               value={phone}
               onChange={e => setPhone(e.target.value)}

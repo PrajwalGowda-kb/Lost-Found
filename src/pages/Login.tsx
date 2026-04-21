@@ -52,7 +52,7 @@ export default function Login() {
       
       // Student-friendly error mapping
       if (message.includes("Invalid login credentials")) {
-        message = "Incorrect email or password. Please try again.";
+        message = "No account found with this email/password. Did you sign up yet?";
       } else if (message.includes("Email not confirmed")) {
         message = "Your email isn't verified yet. Check your inbox for the link!";
       } else if (message.includes("after 30 seconds")) {
