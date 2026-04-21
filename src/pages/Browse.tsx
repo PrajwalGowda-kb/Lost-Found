@@ -4,20 +4,23 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Search, X, SlidersHorizontal } from 'lucide-react';
+import { Search, X, SlidersHorizontal, User as UserIcon } from 'lucide-react';
 import ItemCard from '../components/ItemCard';
 import { CATEGORIES, LostFoundItem } from '../types';
 import { cn } from '../lib/utils';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../App';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Browse() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<LostFoundItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedType, setSelectedType] = useState<'all' | 'lost' | 'found'>('all');
+  
+  const filterMine = searchParams.get('filter') === 'mine';
 
   useEffect(() => {
     if (!user) {
@@ -49,6 +52,8 @@ export default function Browse() {
             reporterId: item.reporter_id,
             reporterName: item.reporter_name,
             reporterEmail: item.reporter_email,
+            reporterPhone: item.reporter_phone,
+            reporterRollNo: item.reporter_roll_no,
             reporterAvatarUrl: item.reporter_avatar_url,
             createdAt: item.created_at
           })) as LostFoundItem[];
@@ -77,14 +82,19 @@ export default function Browse() {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          item.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesUser = !filterMine || item.reporterId === user?.id;
+    return matchesSearch && matchesCategory && matchesUser;
   });
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:py-12 sm:px-6 lg:px-8">
       <div className="mb-8 sm:mb-12">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">Explore Items</h1>
-        <p className="mt-2 text-sm sm:text-base text-gray-500">Search through everything reported on campus.</p>
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+          {filterMine ? "Your Activity" : "Explore Items"}
+        </h1>
+        <p className="mt-2 text-sm sm:text-base text-gray-500">
+          {filterMine ? "Manage and track the reports you've shared." : "Search through everything reported on campus."}
+        </p>
       </div>
 
       <div className="flex flex-col gap-8 lg:flex-row">
@@ -109,6 +119,30 @@ export default function Browse() {
                     className="w-full rounded-2xl border-2 border-indigo-50 bg-gray-50 py-3 pl-11 pr-4 text-sm font-bold transition-all focus:border-indigo-600 focus:bg-white focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-indigo-400">Your Activity</h3>
+                <button
+                  onClick={() => {
+                    const newParams = new URLSearchParams(searchParams);
+                    if (filterMine) newParams.delete('filter');
+                    else newParams.set('filter', 'mine');
+                    setSearchParams(newParams);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl px-4 py-2 text-xs font-bold transition-all ring-2 ring-transparent",
+                    filterMine 
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100 ring-indigo-200" 
+                      : "bg-gray-50 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <UserIcon size={14} strokeWidth={3} />
+                    <span>My Reports</span>
+                  </div>
+                  {filterMine && <div className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_white]" />}
+                </button>
               </div>
 
               <div>
@@ -185,16 +219,25 @@ export default function Browse() {
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
                 <Search size={32} />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">No items found</h3>
-              <p className="mt-2 text-gray-500">Try adjusting your search or filters.</p>
+              <h3 className="text-xl font-bold text-gray-900">
+                {filterMine ? "You haven't reported anything yet" : "No items found"}
+              </h3>
+              <p className="mt-2 text-gray-500">
+                {filterMine ? "Your active lost or found reports will appear here." : "Try adjusting your search or filters."}
+              </p>
               <button 
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedCategory(null);
+                  if (filterMine) {
+                    const newParams = new URLSearchParams(searchParams);
+                    newParams.delete('filter');
+                    setSearchParams(newParams);
+                  }
                 }}
                 className="mt-6 font-bold text-indigo-600 hover:underline"
               >
-                Clear all filters
+                {filterMine ? "View all campus items" : "Clear all filters"}
               </button>
             </div>
           )}

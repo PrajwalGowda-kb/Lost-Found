@@ -15,6 +15,9 @@ export interface LostFoundItem {
   type: ItemType;
   reporterName: string;
   reporterEmail: string;
+  reporterId: string;
+  reporterPhone?: string;
+  reporterRollNo?: string;
   reporterAvatarUrl?: string;
   imageUrl?: string;
   createdAt: string;

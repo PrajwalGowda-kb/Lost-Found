@@ -132,7 +132,7 @@ export default function Navbar() {
                     {/* Links */}
                     <div className="space-y-1 p-2">
                        <Link 
-                        to="/browse" 
+                        to="/browse?filter=mine" 
                         onClick={() => setShowProfile(false)}
                         className="flex items-center gap-3 rounded-2xl p-3 text-xs font-bold text-gray-500 transition-all hover:bg-indigo-50 hover:text-indigo-600"
                        >

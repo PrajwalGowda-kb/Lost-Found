@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { MapPin, Calendar, Tag, X, User, MessageSquare, Send, CheckCircle2, Trash2 } from 'lucide-react';
+import { MapPin, Calendar, Tag, X, User, MessageSquare, Send, CheckCircle2, Trash2, Phone, Hash, ShieldCheck } from 'lucide-react';
 import { LostFoundItem } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -17,7 +17,7 @@ interface ItemCardProps {
 }
 
 export default function ItemCard({ item }: ItemCardProps) {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [showDetails, setShowDetails] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -274,12 +274,46 @@ export default function ItemCard({ item }: ItemCardProps) {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Roll Number</p>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+                        <Hash size={16} className="text-indigo-600 shrink-0" />
+                        <span className="line-clamp-1">{item.reporterRollNo || 'Not Provided'}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Contact Number</p>
+                      <a href={`tel:${item.reporterPhone}`} className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700 hover:text-indigo-600 transition-colors">
+                        <Phone size={16} className="text-indigo-600 shrink-0" />
+                        <span>{item.reporterPhone || 'Not Provided'}</span>
+                      </a>
+                    </div>
+                  </div>
+
                   <div className="mb-8 sm:mb-10 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Item Description</p>
                     <p className="text-sm font-medium leading-relaxed text-gray-500 overflow-y-auto max-h-[150px] lg:max-h-none">
                       {item.description}
                     </p>
                   </div>
+
+                  {/* Owner/Admin Controls */}
+                  {(isAdmin || (user?.id === item.reporterId)) && (
+                    <div className="mb-8 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-100 flex items-center justify-between">
+                       <div className="hidden sm:block">
+                          <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">Mark as Resolved?</p>
+                          <p className="text-[10px] text-emerald-400 font-bold uppercase mt-1 italic">Item found or returned</p>
+                       </div>
+                       <button 
+                        onClick={handleDelete}
+                        className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                       >
+                         <ShieldCheck size={14} />
+                         Mark Resolved
+                       </button>
+                    </div>
+                  )}
 
                   <div className="mt-auto rounded-[2rem] bg-indigo-50/50 p-6 sm:p-8 border-2 border-indigo-100">
                     <h4 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-widest text-indigo-600">

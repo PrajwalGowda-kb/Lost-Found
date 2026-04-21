@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
-import { Camera, MapPin, Calendar, Tag, AlertCircle, CheckCircle2, Upload, X as CloseIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, MapPin, Calendar, Tag, AlertCircle, CheckCircle2, Upload, X as CloseIcon, Phone, User as UserIcon, Hash, Video } from 'lucide-react';
 import { CATEGORIES, LostFoundItem } from '../types';
 import { cn } from '../lib/utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase, signInWithGoogle, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../App';
@@ -16,19 +16,74 @@ export default function Report() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: '',
     location: '',
     date: '',
-    type: 'lost' as 'lost' | 'found'
+    type: 'lost' as 'lost' | 'found',
+    reporterPhone: '',
+    reporterRollNo: ''
   });
+
+  // Camera logic
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsCameraActive(true);
+      }
+    } catch (err) {
+      console.error("Camera access error:", err);
+      alert("Could not access camera. Please check permissions.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setImagePreview(dataUrl);
+        
+        // Convert dataUrl to File object
+        fetch(dataUrl)
+          .then(res => res.blob())
+          .then(blob => {
+            const file = new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" });
+            setImageFile(file);
+          });
+        
+        stopCamera();
+      }
+    }
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,7 +165,9 @@ export default function Report() {
           reporter_id: user.id,
           reporter_name: user.user_metadata?.full_name || 'Anonymous',
           reporter_email: user.email || 'No email',
-          reporter_avatar_url: user.user_metadata?.avatar_url || null
+          reporter_avatar_url: user.user_metadata?.avatar_url || null,
+          reporter_phone: formData.reporterPhone || null,
+          reporter_roll_no: formData.reporterRollNo || null
         });
 
       if (insertError) throw insertError;
@@ -293,8 +350,93 @@ export default function Report() {
             </div>
           </div>
 
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-xs font-black uppercase tracking-widest text-indigo-400">Reporter Name</label>
+              <div className="relative">
+                <UserIcon className="absolute top-1/2 left-5 -translate-y-1/2 text-indigo-400" size={18} strokeWidth={3} />
+                <input 
+                  required
+                  type="text" 
+                  placeholder="Your Name"
+                  className="w-full rounded-2xl border-2 border-indigo-50 bg-gray-50 py-3 sm:py-4 pl-14 pr-4 font-bold transition-all focus:border-indigo-600 focus:bg-white focus:outline-none text-sm sm:text-base opacity-70"
+                  value={user.user_metadata?.full_name || ''}
+                  readOnly
+                />
+              </div>
+            </div>
+             <div>
+              <label className="mb-2 block text-xs font-black uppercase tracking-widest text-indigo-400">Roll Number</label>
+              <div className="relative">
+                <Hash className="absolute top-1/2 left-5 -translate-y-1/2 text-indigo-400" size={18} strokeWidth={3} />
+                <input 
+                  required
+                  type="text" 
+                  placeholder="e.g., 22BEC123"
+                  className="w-full rounded-2xl border-2 border-indigo-50 bg-gray-50 py-3 sm:py-4 pl-14 pr-4 font-bold transition-all focus:border-indigo-600 focus:bg-white focus:outline-none text-sm sm:text-base"
+                  value={formData.reporterRollNo}
+                  onChange={e => setFormData(prev => ({...prev, reporterRollNo: e.target.value}))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+             <label className="mb-2 block text-xs font-black uppercase tracking-widest text-indigo-400">Phone Number</label>
+             <div className="relative">
+                <Phone className="absolute top-1/2 left-5 -translate-y-1/2 text-indigo-400" size={18} strokeWidth={3} />
+                <input 
+                  required
+                  type="tel" 
+                  placeholder="e.g., +91 98765 43210"
+                  className="w-full rounded-2xl border-2 border-indigo-50 bg-gray-50 py-3 sm:py-4 pl-14 pr-4 font-bold transition-all focus:border-indigo-600 focus:bg-white focus:outline-none text-sm sm:text-base"
+                  value={formData.reporterPhone}
+                  onChange={e => setFormData(prev => ({...prev, reporterPhone: e.target.value}))}
+                />
+             </div>
+          </div>
+
           <div>
             <label className="mb-4 block text-xs font-black uppercase tracking-widest text-indigo-400">Photo / Document</label>
+            
+            <AnimatePresence>
+              {isCameraActive && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-4 overflow-hidden rounded-[2.5rem] border-4 border-indigo-600"
+                >
+                  <div className="relative aspect-video w-full bg-black">
+                    <video 
+                      ref={videoRef} 
+                      autoPlay 
+                      playsInline 
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4">
+                      <button
+                        type="button"
+                        onClick={takePhoto}
+                        className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-indigo-600 shadow-2xl transition-transform hover:scale-110 active:scale-90"
+                      >
+                        <div className="h-12 w-12 rounded-full border-4 border-indigo-600"></div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="flex h-16 items-center rounded-2xl bg-rose-500 px-6 font-black text-white shadow-xl transition-all hover:bg-rose-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <canvas ref={canvasRef} className="hidden" />
+
             <div 
               className={cn(
                 "relative flex min-h-[160px] flex-col items-center justify-center rounded-[2rem] border-4 border-dashed transition-all",
@@ -324,17 +466,29 @@ export default function Report() {
                   )}
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center gap-2 text-indigo-400 transition-colors hover:text-indigo-600"
-                >
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                    <Camera size={32} strokeWidth={2.5} />
-                  </div>
-                  <span className="text-sm font-black uppercase tracking-widest">Click to upload photo</span>
-                  <span className="text-[10px] uppercase tracking-wider opacity-60">Max size 5MB (JPG, PNG)</span>
-                </button>
+                <div className="flex w-full flex-col gap-4 p-8 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[2rem] bg-indigo-600 p-8 text-white shadow-xl transition-all hover:scale-105 active:scale-95"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 text-white">
+                      <Video size={28} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-sm font-black uppercase tracking-widest">Take Picture</span>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[2rem] bg-white border-4 border-indigo-50 p-8 text-indigo-400 shadow-xl transition-all hover:scale-105 hover:border-indigo-100 hover:text-indigo-600 active:scale-95"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                      <Upload size={28} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-sm font-black uppercase tracking-widest">Upload File</span>
+                  </button>
+                </div>
               )}
               <input 
                 ref={fileInputRef}
