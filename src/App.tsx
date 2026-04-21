@@ -4,7 +4,7 @@
  */
 
 import { BrowserRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
-import { useEffect, useState, createContext, useContext } from 'react';
+import React, { useEffect, useState, createContext, useContext } from 'react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Browse from './pages/Browse';
@@ -13,8 +13,9 @@ import Login from './pages/Login';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import { AnimatePresence, motion } from 'motion/react';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { Navigate } from 'react-router-dom';
 
 // Auth Context
 const AuthContext = createContext<{ 
@@ -31,6 +32,24 @@ const AuthContext = createContext<{
   logoutAdmin: () => {}
 });
 export const useAuth = () => useContext(AuthContext);
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -52,14 +71,18 @@ function AnimatedRoutes() {
           </motion.div>
         } />
         <Route path="/browse" element={
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-            <Browse />
-          </motion.div>
+          <RequireAuth>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+              <Browse />
+            </motion.div>
+          </RequireAuth>
         } />
         <Route path="/report" element={
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-            <Report />
-          </motion.div>
+          <RequireAuth>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+              <Report />
+            </motion.div>
+          </RequireAuth>
         } />
         <Route path="/login" element={
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>

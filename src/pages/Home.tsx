@@ -13,10 +13,16 @@ import { LostFoundItem } from '../types';
 import { useAuth } from '../App';
 
 export default function Home() {
+  const { user } = useAuth();
   const [recentItems, setRecentItems] = useState<LostFoundItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const fetchRecentItems = async () => {
       setLoading(true);
       let allItems: LostFoundItem[] = [];
@@ -173,7 +179,23 @@ export default function Home() {
         </div>
         
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {loading ? (
+          {!user ? (
+             <div className="col-span-full flex flex-col items-center rounded-[3rem] border-4 border-dashed border-indigo-100 bg-white py-20 text-center shadow-xl shadow-indigo-50">
+               <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-indigo-50 text-indigo-600">
+                  <ShieldCheck size={40} />
+               </div>
+               <h3 className="text-2xl font-black uppercase tracking-tighter text-gray-900">Protected Content</h3>
+               <p className="mt-2 max-w-md px-4 font-bold text-gray-400 uppercase tracking-widest text-[10px]">
+                 Sign in with your verified campus account to view live reports and secure the community.
+               </p>
+               <Link 
+                 to="/login"
+                 className="mt-8 flex h-12 items-center gap-2 rounded-2xl bg-indigo-600 px-8 font-black text-white shadow-lg shadow-indigo-100 transition-all hover:scale-105 active:scale-95 uppercase tracking-tighter text-sm"
+               >
+                 Sign In Now
+               </Link>
+             </div>
+          ) : loading ? (
             [1, 2, 3].map(i => (
               <div key={i} className="h-64 animate-pulse rounded-2xl bg-gray-100"></div>
             ))
@@ -202,16 +224,16 @@ export default function Home() {
           
           <div className="relative mt-10 flex flex-col justify-center gap-4 sm:flex-row">
             <Link 
-              to="/report" 
+              to={user ? "/report" : "/login"} 
               className="inline-flex h-14 items-center justify-center rounded-2xl bg-white px-8 font-bold text-indigo-600 shadow-xl transition-all hover:bg-indigo-50 active:scale-95"
             >
-              Report Item Now
+              {user ? "Report Item Now" : "Sign In to Report"}
             </Link>
             <Link 
-              to="/browse" 
+              to={user ? "/browse" : "/login"} 
               className="inline-flex h-14 items-center justify-center rounded-2xl border-2 border-white/30 px-8 font-bold text-white backdrop-blur-sm transition-all hover:bg-white/10 active:scale-95"
             >
-              Browse Lost Items
+              {user ? "Browse Lost Items" : "Sign In to Browse"}
             </Link>
           </div>
         </div>

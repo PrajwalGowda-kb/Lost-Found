@@ -12,6 +12,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../App';
 
 export default function Browse() {
+  const { user } = useAuth();
   const [items, setItems] = useState<LostFoundItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,6 +20,11 @@ export default function Browse() {
   const [selectedType, setSelectedType] = useState<'all' | 'lost' | 'found'>('all');
 
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     const fetchItems = async () => {
       setLoading(true);
       let allItems: LostFoundItem[] = [];
