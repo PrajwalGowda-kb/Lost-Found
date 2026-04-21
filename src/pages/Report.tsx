@@ -39,24 +39,37 @@ export default function Report() {
 
   // Camera logic
   const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-      }
-    } catch (err) {
-      console.error("Camera access error:", err);
-      alert("Could not access camera. Please check permissions.");
-    }
+    setIsCameraActive(true);
+    // We'll use the useEffect below to attach the stream once videoRef is available
   };
 
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    
+    if (isCameraActive && videoRef.current) {
+      const initCamera = async () => {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (err) {
+          console.error("Camera access error:", err);
+          alert("Could not access camera. Please check permissions.");
+          setIsCameraActive(false);
+        }
+      };
+      initCamera();
     }
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isCameraActive]);
+
+  const stopCamera = () => {
     setIsCameraActive(false);
   };
 

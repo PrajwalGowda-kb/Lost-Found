@@ -46,16 +46,27 @@ export default function AdminDashboard() {
     setIsRefreshing(true);
     setErrorMessage(null);
     
-    const { data, error } = await supabase
+    const { data: itemsData, error: itemsError } = await supabase
       .from('items')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error("Fetch error:", error);
-      setErrorMessage(`${error.message} (${error.code})`);
-    } else if (data) {
-      const mapped = data.map(item => ({
+    if (itemsError) {
+      console.error("Fetch items error:", itemsError);
+      setErrorMessage(`${itemsError.message} (${itemsError.code})`);
+    }
+
+    // Also fetch all registered profiles
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*');
+
+    if (profilesError) {
+      console.warn("Fetch profiles error (table may not exist):", profilesError);
+    }
+
+    if (itemsData) {
+      const mapped = itemsData.map(item => ({
         id: item.id,
         title: item.title,
         description: item.description,
@@ -74,8 +85,23 @@ export default function AdminDashboard() {
       })) as LostFoundItem[];
       setItems(mapped);
 
-      // Aggregate unique users
+      // Aggregate unique users and merge with profiles
       const userMap = new Map<string, UserDetail>();
+
+      // 1. First add all known profiles (even those without reports)
+      if (profilesData) {
+        profilesData.forEach((p: any) => {
+          userMap.set(p.id, {
+            id: p.id,
+            name: p.full_name,
+            email: p.email,
+            avatarUrl: p.avatar_url,
+            reportCount: 0
+          });
+        });
+      }
+
+      // 2. Add/Merge users from items table
       mapped.forEach(item => {
         if (!userMap.has(item.reporterId)) {
           userMap.set(item.reporterId, {
@@ -90,9 +116,10 @@ export default function AdminDashboard() {
         }
         const u = userMap.get(item.reporterId)!;
         u.reportCount += 1;
-        // Keep the most detailed info
+        // Enrich data from reporter fields if not present in profile
         if (!u.phone && item.reporterPhone) u.phone = item.reporterPhone;
         if (!u.rollNo && item.reporterRollNo) u.rollNo = item.reporterRollNo;
+        if (!u.name && item.reporterName) u.name = item.reporterName;
       });
       setUsers(Array.from(userMap.values()));
     }

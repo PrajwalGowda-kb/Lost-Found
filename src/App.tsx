@@ -169,9 +169,25 @@ export default function App() {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
       setLoading(false);
+
+      if (currentUser) {
+        // Sync user profile to public table for Admin visibility
+        try {
+          await supabase.from('profiles').upsert({
+            id: currentUser.id,
+            full_name: currentUser.user_metadata?.full_name || 'Anonymous Student',
+            email: currentUser.email,
+            avatar_url: currentUser.user_metadata?.avatar_url || null,
+            last_login: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn("Profile sync skipped (likely table doesn't exist yet):", err);
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
