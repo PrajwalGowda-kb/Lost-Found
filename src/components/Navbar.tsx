@@ -41,7 +41,7 @@ export default function Navbar() {
   return (
     <nav className="sticky top-6 z-50 mx-auto mt-6 w-[calc(100%-3rem)] max-w-7xl rounded-3xl border-2 border-indigo-100 bg-white p-2 shadow-xl">
       <div className="flex h-14 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-3 transition-transform hover:scale-105">
+        <Link to={isAdmin ? "/admin/dashboard" : "/"} className="flex items-center gap-3 transition-transform hover:scale-105">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg">
             <Box size={22} strokeWidth={3} />
           </div>
@@ -51,11 +51,13 @@ export default function Navbar() {
           </div>
         </Link>
         
-        <div className="hidden md:flex md:items-center md:gap-4">
-          <Link to="/" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">Home</Link>
-          <Link to="/browse" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">Browse</Link>
-          <Link to="/report" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">Report</Link>
-        </div>
+        {!isAdmin && (
+          <div className="hidden md:flex md:items-center md:gap-4">
+            <Link to="/" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">Home</Link>
+            <Link to="/browse" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">Browse</Link>
+            <Link to="/report" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">Report</Link>
+          </div>
+        )}
 
         <div className="flex items-center gap-1.5 sm:gap-3" ref={menuRef}>
           {isAdmin && (
@@ -131,16 +133,18 @@ export default function Navbar() {
 
                     {/* Links */}
                     <div className="space-y-1 p-2">
-                       <Link 
-                        to="/browse?filter=mine" 
-                        onClick={() => setShowProfile(false)}
-                        className="flex items-center gap-3 rounded-2xl p-3 text-xs font-bold text-gray-500 transition-all hover:bg-indigo-50 hover:text-indigo-600"
-                       >
-                         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border-2 border-indigo-50 text-indigo-600">
-                            <Box size={14} strokeWidth={3} />
-                         </div>
-                         My Reports
-                       </Link>
+                       {!isAdmin && (
+                         <Link 
+                          to="/browse?filter=mine" 
+                          onClick={() => setShowProfile(false)}
+                          className="flex items-center gap-3 rounded-2xl p-3 text-xs font-bold text-gray-500 transition-all hover:bg-indigo-50 hover:text-indigo-600"
+                         >
+                           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border-2 border-indigo-50 text-indigo-600">
+                              <Box size={14} strokeWidth={3} />
+                           </div>
+                           My Reports
+                         </Link>
+                       )}
                        <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-xs font-bold text-gray-500 transition-all hover:bg-indigo-50 hover:text-indigo-600">
                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border-2 border-indigo-50 text-indigo-600">
                             <HelpCircle size={14} strokeWidth={3} />

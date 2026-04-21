@@ -4,8 +4,9 @@ import { useAuth } from '../App';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { LostFoundItem } from '../types';
-import { Trash2, ShieldCheck, LogOut, Search, ExternalLink, Calendar, MapPin, RefreshCw, Layers, ShieldAlert, Users, Package, Mail, Phone, Hash } from 'lucide-react';
+import { Trash2, ShieldCheck, LogOut, Search, ExternalLink, Calendar, MapPin, RefreshCw, Layers, ShieldAlert, Users, Package, Mail, Phone, Hash, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
+import ItemDetailsModal from '../components/ItemDetailsModal';
 
 interface UserDetail {
   id: string;
@@ -27,6 +28,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
 
   // Security Gate
   useEffect(() => {
@@ -384,12 +386,13 @@ export default function AdminDashboard() {
                               >
                                 <Trash2 size={16} />
                               </button>
-                              <Link 
-                                to="/browse"
+                              <button 
+                                onClick={() => setSelectedItem(item)}
                                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-all hover:bg-indigo-600 hover:text-white"
+                                title="View Details"
                               >
-                                <ExternalLink size={16} />
-                              </Link>
+                                <ChevronRight size={18} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -506,6 +509,14 @@ export default function AdminDashboard() {
            </div>
         </div>
       </main>
+
+      {selectedItem && (
+        <ItemDetailsModal 
+          item={selectedItem} 
+          onClose={() => setSelectedItem(null)}
+          onResolve={() => fetchData()}
+        />
+      )}
     </div>
   );
 }

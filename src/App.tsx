@@ -34,7 +34,7 @@ const AuthContext = createContext<{
 export const useAuth = () => useContext(AuthContext);
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   
   if (loading) {
     return (
@@ -42,6 +42,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
       </div>
     );
+  }
+
+  // If Admin is logged in, they should NOT access student pages
+  if (isAdmin) {
+    return <Navigate to="/admin/dashboard" replace />;
   }
   
   if (!user) {
@@ -59,6 +64,36 @@ function ScrollToTop() {
   return null;
 }
 
+function HomeWrapper() {
+  const { isAdmin } = useAuth();
+  if (isAdmin) return <Navigate to="/admin/dashboard" replace />;
+  return <Home />;
+}
+
+function Footer() {
+  const location = useLocation();
+  if (location.pathname !== '/') return null;
+
+  return (
+    <footer className="border-t border-gray-100 bg-white py-12">
+      <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-indigo-600"></div>
+          <span className="text-xl font-bold tracking-tighter text-gray-900 italic">Beacon</span>
+        </div>
+        <p className="text-sm text-gray-500">
+          © 2026 Beacon Campus Lost & Found. Connecting community, one item at a time.
+        </p>
+        <div className="mt-6 flex justify-center gap-6 text-sm font-medium text-gray-400">
+          <a href="#" className="hover:text-indigo-600">Safety Tips</a>
+          <a href="#" className="hover:text-indigo-600">Terms of Service</a>
+          <Link to="/admin" className="hover:text-indigo-900 border-l-2 border-gray-100 pl-6">Admin Access</Link>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
   
@@ -67,7 +102,7 @@ function AnimatedRoutes() {
       <Routes location={location}>
         <Route path="/" element={
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-            <Home />
+            <HomeWrapper />
           </motion.div>
         } />
         <Route path="/browse" element={
@@ -152,23 +187,7 @@ export default function App() {
             <AnimatedRoutes />
           </main>
           
-          {/* Simple Footer */}
-        <footer className="border-t border-gray-100 bg-white py-12">
-          <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-            <div className="mb-6 flex items-center justify-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-indigo-600"></div>
-              <span className="text-xl font-bold tracking-tighter text-gray-900 italic">Beacon</span>
-            </div>
-            <p className="text-sm text-gray-500">
-              © 2026 Beacon Campus Lost & Found. Connecting community, one item at a time.
-            </p>
-            <div className="mt-6 flex justify-center gap-6 text-sm font-medium text-gray-400">
-              <a href="#" className="hover:text-indigo-600">Safety Tips</a>
-              <a href="#" className="hover:text-indigo-600">Terms of Service</a>
-              <Link to="/admin" className="hover:text-indigo-900 border-l-2 border-gray-100 pl-6">Admin Access</Link>
-            </div>
-          </div>
-        </footer>
+          <Footer />
       </div>
     </Router>
     </AuthContext.Provider>
