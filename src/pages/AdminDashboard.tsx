@@ -129,10 +129,8 @@ export default function AdminDashboard() {
       console.error("Fetch items exception:", err);
       setErrorMessage("System error during database synchronization.");
     } finally {
-      if (isRefreshing) { // Only finish loading if we were actually refreshing
-        setLoading(false);
-        setIsRefreshing(false);
-      }
+      setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -190,15 +188,15 @@ export default function AdminDashboard() {
   };
 
   const filteredItems = items.filter(item => 
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.reporterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.location.toLowerCase().includes(searchQuery.toLowerCase())
+    (item.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (item.reporterName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (item.location?.toLowerCase() || '').includes(searchQuery.toLowerCase())
   );
 
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (user.rollNo && user.rollNo.toLowerCase().includes(searchQuery.toLowerCase()))
+    (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (user.rollNo?.toLowerCase() || '').includes(searchQuery.toLowerCase())
   );
 
   if (!isAdmin) return null;
