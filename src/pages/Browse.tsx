@@ -18,6 +18,7 @@ export default function Browse() {
   const [items, setItems] = useState<LostFoundItem[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'items' | 'directory'>('items');
@@ -29,23 +30,44 @@ export default function Browse() {
   const filteringSpecificUser = filterParam === 'user' && userIdParam && userIdParam !== user?.id;
 
   useEffect(() => {
-    if (!user) {
+    // If Supabase is not configured, we should stop loading immediately to avoid a stuck state
+    if (!isSupabaseConfigured) {
       setLoading(false);
       return;
     }
     
+    let isMounted = true;
+
+    // Safety timeout for loading
+    const loadTimeout = setTimeout(() => {
+      if (loading && isMounted) {
+        console.warn("Items fetch timed out.");
+        setLoading(false);
+        if (items.length === 0) {
+          setErrorStatus("Request timed out. Please refresh.");
+        }
+      }
+    }, 8000);
+
     const fetchItems = async () => {
+      if (!isMounted) return;
+      
       setLoading(true);
+      setErrorStatus(null);
       let allItems: LostFoundItem[] = [];
 
-      // 1. Fetch from Supabase
-      if (isSupabaseConfigured) {
+      try {
+        // Fetch all items from the 'items' table
+        // We do NOT require a 'user' to be logged in for public browsing
         const { data, error } = await supabase
           .from('items')
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (error) {
+          console.error("Error fetching items:", error);
+          setErrorStatus(error.message);
+        } else if (data && isMounted) {
           const mapped = data.map(item => ({
             id: item.id,
             title: item.title,
@@ -66,7 +88,7 @@ export default function Browse() {
           
           allItems = mapped;
 
-          // Build User Directory
+          // Build User Directory from the reports
           const userMap = new Map();
           mapped.forEach(item => {
             if (!userMap.has(item.reporterId)) {
@@ -82,27 +104,35 @@ export default function Browse() {
             }
             userMap.get(item.reporterId).reportsCount++;
           });
-          setUsers(Array.from(userMap.values()));
-        } else if (error) {
-          console.error("Error fetching items:", error);
+          if (isMounted) {
+            setUsers(Array.from(userMap.values()));
+          }
+        }
+      } catch (err) {
+        console.error("Fetch items exception:", err);
+        if (isMounted) setErrorStatus("Failed to communicate with database.");
+      } finally {
+        if (isMounted) {
+          setItems(allItems);
+          setLoading(false);
+          clearTimeout(loadTimeout);
         }
       }
-
-      setItems(allItems);
-      setLoading(false);
     };
 
     fetchItems();
 
-    const subscription = supabase
+    // Listen for real-time changes to keep the list updated
+    const channel = supabase
       .channel('public:items_browse')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, fetchItems)
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      isMounted = false;
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user]); // Re-fetch only when user session changes (to handle RLS updates)
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -285,6 +315,19 @@ export default function Browse() {
             </span>
           </div>
 
+          {errorStatus && (
+            <div className="mb-8 rounded-[2rem] bg-rose-50 p-8 border-2 border-rose-100 text-center">
+              <p className="text-xl font-black text-rose-500 uppercase tracking-tighter mb-2">Connection Error</p>
+              <p className="text-sm font-bold text-rose-400 mb-6 uppercase tracking-wider">{errorStatus}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="rounded-xl bg-rose-500 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-rose-100 transition-all hover:scale-105 active:scale-95"
+              >
+                Retry Connection
+              </button>
+            </div>
+          )}
+
           {activeTab === 'directory' ? (
             <div className="grid gap-6 sm:grid-cols-2">
                {filteredUsers.map(u => (
@@ -363,25 +406,36 @@ export default function Browse() {
                     <Search size={32} />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900">
-                    {filterMine ? "You haven't reported anything yet" : "No items found"}
+                    {!isSupabaseConfigured ? "Supabase Not Connected" : 
+                     filterMine ? "You haven't reported anything yet" : "No items found"}
                   </h3>
                   <p className="mt-2 text-gray-500">
-                    {filterMine ? "Your active lost or found reports will appear here." : "Try adjusting your search or filters."}
+                    {!isSupabaseConfigured 
+                      ? "Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to Settings > Secrets."
+                      : filterMine 
+                        ? "Your active lost or found reports will appear here." 
+                        : "Try adjusting your search or filters. If you've added reports, check your Supabase RLS policies."}
                   </p>
-                  <button 
-                    onClick={() => {
-                      setSearchQuery('');
-                      setSelectedCategory(null);
-                      const p = new URLSearchParams(searchParams);
-                      p.delete('filter');
-                      p.delete('userId');
-                      p.delete('userName');
-                      setSearchParams(p);
-                    }}
-                    className="mt-6 font-bold text-indigo-600 hover:underline"
-                  >
-                    Clear all filters
-                  </button>
+                  {!isSupabaseConfigured ? (
+                    <div className="mt-8 rounded-2xl bg-indigo-50 p-6 text-xs font-bold text-indigo-600 max-w-sm">
+                       Ensure your items table has "Public Read" policies enabled in the Supabase Dashboard.
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedCategory(null);
+                        const p = new URLSearchParams(searchParams);
+                        p.delete('filter');
+                        p.delete('userId');
+                        p.delete('userName');
+                        setSearchParams(p);
+                      }}
+                      className="mt-6 font-bold text-indigo-600 hover:underline"
+                    >
+                      Clear all filters
+                    </button>
+                  )}
                 </div>
               )}
             </>

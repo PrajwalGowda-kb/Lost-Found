@@ -157,24 +157,54 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Safety timeout to prevent stuck loading indicator
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth check timed out, proceeding with current state.");
+        setLoading(false);
+      }
+    }, 5000);
+
     if (!isSupabaseConfigured) {
       setLoading(false);
+      clearTimeout(timeout);
       return;
     }
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (loading) setLoading(false);
+      clearTimeout(timeout);
+    }).catch(err => {
+      console.error("Session fetch error:", err);
       setLoading(false);
+      clearTimeout(timeout);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth Event:", event);
       const currentUser = session?.user ?? null;
+      
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setLoading(false);
+        clearTimeout(timeout);
+        // Clear Supabase specific tokens from localStorage
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('-auth-token')) {
+            localStorage.removeItem(key);
+          }
+        });
+        return;
+      }
+
       setUser(currentUser);
       setLoading(false);
+      clearTimeout(timeout);
 
-      if (currentUser) {
+      if (currentUser && event === 'SIGNED_IN') {
         // Sync user profile to public table for Admin visibility
         try {
           await supabase.from('profiles').upsert({

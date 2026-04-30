@@ -46,27 +46,30 @@ export default function AdminDashboard() {
     setIsRefreshing(true);
     setErrorMessage(null);
     
-    const { data: itemsData, error: itemsError } = await supabase
-      .from('items')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      // 1. Fetch Item Inventory
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('items')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (itemsError) {
-      console.error("Fetch items error:", itemsError);
-      setErrorMessage(`${itemsError.message} (${itemsError.code})`);
-    }
+      if (itemsError) {
+        console.error("Fetch items error:", itemsError);
+        setErrorMessage(`Items Table Error: ${itemsError.message}`);
+      }
 
-    // Also fetch all registered profiles
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*');
+      // 2. Fetch User Profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
 
-    if (profilesError) {
-      console.warn("Fetch profiles error (table may not exist):", profilesError);
-    }
+      if (profilesError) {
+        console.warn("Fetch profiles error (table may not exist):", profilesError);
+        // We don't set a critical error here because the dashboard might still work with item-based user data
+      }
 
-    if (itemsData) {
-      const mapped = itemsData.map(item => ({
+      // 3. Process Items
+      const mapped = (itemsData || []).map(item => ({
         id: item.id,
         title: item.title,
         description: item.description,
@@ -85,23 +88,23 @@ export default function AdminDashboard() {
       })) as LostFoundItem[];
       setItems(mapped);
 
-      // Aggregate unique users and merge with profiles
+      // 4. Aggregate unique users and merge with profiles
       const userMap = new Map<string, UserDetail>();
 
-      // 1. First add all known profiles (even those without reports)
+      // A. Add all known profiles first
       if (profilesData) {
         profilesData.forEach((p: any) => {
           userMap.set(p.id, {
             id: p.id,
-            name: p.full_name,
-            email: p.email,
+            name: p.full_name || 'Anonymous',
+            email: p.email || 'No email',
             avatarUrl: p.avatar_url,
             reportCount: 0
           });
         });
       }
 
-      // 2. Add/Merge users from items table
+      // B. Merge users from items table (for those who reported but might not have a profile record yet)
       mapped.forEach(item => {
         if (!userMap.has(item.reporterId)) {
           userMap.set(item.reporterId, {
@@ -116,15 +119,21 @@ export default function AdminDashboard() {
         }
         const u = userMap.get(item.reporterId)!;
         u.reportCount += 1;
-        // Enrich data from reporter fields if not present in profile
         if (!u.phone && item.reporterPhone) u.phone = item.reporterPhone;
         if (!u.rollNo && item.reporterRollNo) u.rollNo = item.reporterRollNo;
-        if (!u.name && item.reporterName) u.name = item.reporterName;
+        if ((!u.name || u.name === 'Anonymous') && item.reporterName) u.name = item.reporterName;
       });
+      
       setUsers(Array.from(userMap.values()));
+    } catch (err) {
+      console.error("Fetch items exception:", err);
+      setErrorMessage("System error during database synchronization.");
+    } finally {
+      if (isRefreshing) { // Only finish loading if we were actually refreshing
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
-    setLoading(false);
-    setIsRefreshing(false);
   };
 
   useEffect(() => {

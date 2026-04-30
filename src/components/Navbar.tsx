@@ -33,8 +33,25 @@ export default function Navbar() {
     if (isAdmin) {
       logoutAdmin();
       navigate('/admin');
+      window.location.reload();
     } else {
-      await logout();
+      try {
+        // High-priority logout attempt
+        const logoutPromise = logout();
+        // Give it 2 seconds, if it doesn't finish, we force it locally anyway
+        await Promise.race([
+          logoutPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000))
+        ]);
+        
+        window.location.href = '/'; 
+      } catch (err) {
+        console.error("Logout process error/timeout:", err);
+        // Fatal fallback: clear everything and redirect
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.assign('/');
+      }
     }
   };
 

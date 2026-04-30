@@ -34,9 +34,19 @@ export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin
+      redirectTo: window.location.origin,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      },
+      skipBrowserRedirect: false // Ensure we use the standard flow if popup fails, or use popup specifically
     }
   });
+
+  // Note: Standard signInWithOAuth with no extra options usually redirects.
+  // In this environment, we should try to use popup if possible via some environments,
+  // but Supabase's standard signInWithOAuth handles redirects well too if the redirect URL is correct.
+  // Let's refine the redirectTo.
   if (error) throw error;
   return data;
 };
@@ -91,6 +101,15 @@ export const signInDemo = async () => {
 
 export const logout = async () => {
   if (!isSupabaseConfigured) return;
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  } finally {
+    // Manually clear any leftover auth keys just in case signOut missed some
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('auth-token')) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
 };
